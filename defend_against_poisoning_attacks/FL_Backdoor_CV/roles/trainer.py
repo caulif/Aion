@@ -4,7 +4,7 @@ import random
 import time
 import sys
 
-# 获取当前文件的目录
+
 current_file_path = os.path.abspath(__file__)
 
 fl_backdoor_cv_dir = os.path.dirname(os.path.dirname(current_file_path))
@@ -12,7 +12,7 @@ sys.path.append(fl_backdoor_cv_dir)
 
 roseagg_dir = os.path.dirname(fl_backdoor_cv_dir)
 
-# 将 RoseAgg 目录添加到 PYTHONPATH
+
 sys.path.append(roseagg_dir)
 
 

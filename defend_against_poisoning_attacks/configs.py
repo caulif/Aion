@@ -179,7 +179,7 @@ parser.add_argument('--show_process', default=0, type=int)
 
 parser.add_argument('--aggregate_all_layer', default=1, type=int)
 
-# === jzx_test ===
+
 parser.add_argument('--weight', default=1, type=float)
 
 parser.add_argument('--min_threshold', default=0.1, type=float)
