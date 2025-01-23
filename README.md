@@ -35,7 +35,7 @@ e.g., 128, 256, 512.
 
 Example command:
 ```
-python abides.py -c flamingo -n 128 -i 1 -p 1 
+python abides.py -c Aion -n 128 -i 1 -p 1 
 ```
 
 
