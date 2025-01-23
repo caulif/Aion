@@ -31,8 +31,6 @@ class Kernel:
         # Timestamp that the Kernel was created. Primarily used for creating a unique log directory for this run
         # also used to print some elapsed time and messages per second statistics
         self.kernelWallClockStart = pd.Timestamp('now')
-
-        # TODO: this belongs in the finance part, probably not here...
         self.meanResultByAgentType = {}
         self.agentCountByType = {}
 
@@ -239,8 +237,7 @@ class Kernel:
 
                     # Set the agent's current time to the global current time in order to start
                     # processing.
-                    self.agentCurrentTimes[agent] = self.currentTime
-                    # by cx 2024.05.28
+
                     # time.sleep(1)
                     # Pass the message.
                     agents[agent].receiveMessage(self.currentTime, msg)

@@ -15,7 +15,21 @@ The waiting time is set according to the network latency distribution and a targ
 
 ## Installation Instructions
 
+We recommend Anaconda to set up environment.
+Create an environment with python 3.8 and then activate it.
 
+```
+conda create --name aion python=3.8
+conda activate aion
+```
+
+Use pip to install required packages.
+
+```
+pip install -r requirements.txt
+```
+
+## 
 
 
 ## **Secure Aggregation**
@@ -28,7 +42,10 @@ python setup_pki.py
 Our program has multiple configs.
 
 ```
-
+-c [protocol name] 
+-n [number of clients (power of 2)]
+-i [number of iterations] 
+-p [parallel or not] 
 ```
 Aion supports batches of clients with size power of 2, starting from 128,
 e.g., 128, 256, 512.

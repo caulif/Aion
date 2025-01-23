@@ -5,8 +5,7 @@ import os
 
 
 def main():
-    # add by czh, 2024.05.10
-    # sys.path.append(os.path.abspath('./NIID_Bench'))
+
 
     # Print system banner.
     system_name = "ABIDES: Agent-Based Interactive Discrete Event Simulation"

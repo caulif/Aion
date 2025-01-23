@@ -11,13 +11,6 @@ from util.util import log_print
 class Agent:
 
     def __init__(self, id, name, type, random_state):
-
-        # ID must be a unique number (usually autoincremented).
-        # Name is for human consumption, should be unique (often type + number).
-        # Type is for machine aggregation of results, should be same for all
-        # agents following the same strategy (incl. parameter settings).
-        # Every agent is given a random state to use for any stochastic needs.
-        # This is an np.random.RandomState object, already seeded.
         self.total_message_bits = 0
         self.id = id
         self.name = name
@@ -36,25 +29,8 @@ class Agent:
                              "for every agent.Agent", self.name)
             sys.exit()
 
-        # Kernel is supplied via kernelInitializing method of kernel lifecycle.
         self.kernel = None
-
-        # What time does the agent think it is?  Should be updated each time
-        # the agent wakes via wakeup or receiveMessage.  (For convenience
-        # of reference throughout the Agent class hierarchy, NOT THE
-        # CANONICAL TIME.)
         self.currentTime = None
-
-        # Agents may choose to maintain a log.  During simulation,
-        # it should be stored as a list of dictionaries.  The expected
-        # keys by default are: EventTime, EventType, Event.  Other
-        # Columns may be added, but will then require specializing
-        # parsing and will increase output dataframe size.  If there
-        # is a non-empty log, it will be written to disk as a Dataframe
-        # at kernel termination.
-
-        # It might, or might not, make sense to formalize these log Events
-        # as a class, with enumerated EventTypes and so forth.
         self.log = []
         self.logEvent("AGENT_TYPE", type)
 
@@ -151,14 +127,6 @@ class Agent:
     ### It is possible this could change in the future.  Normal agents will
     ### not typically wish to request additional delay.
     def sendMessage(self, recipientID, msg, delay=0, tag="communication",msg_name=None):
-        # message_type = None
-        # if 'iteration' in msg.body:
-        #     if msg.body['iteration'] == 2:
-        #         with open('msg.txt', 'a') as f:
-        #             f.write(str(msg) + '\n')
-
-
-        # ��Ϣ�׶η���
         message_type = None
         if msg.body['msg'] == "SHARED_MASK":
             message_type = "Seed sharing"
@@ -179,53 +147,13 @@ class Agent:
             message_size_bits = 0
             for content in msg.body:
                 message_size_bits += sys.getsizeof(msg.body[content]) * 8
-            # message_size_bits = len(str(msg).encode('utf-8')) * 8  # ������Ϣ��С
             with open('msg-'+str(msg_name)+'.txt', 'a') as f:
                 f.write(message_type + '\n')
                 f.write(str(message_size_bits) + '\n')
 
-        # message_type = None
-        # if msg.body['msg'] == "request shares sum" or msg.body['msg'] == "hprf_SUM_SHARES" or msg.body[
-        #     'msg'] == "INITIAL_MODEL" or msg.body['msg'] == "SIGN" or msg.body[
-        #     'msg'] == "BFT_SIGN":
-        #     message_type = "Server_ag"
-        # elif msg.body['msg'] == "ONLINE_CLIENTS":
-        #     message_type = "Server_init"
-        # elif msg.body['msg'] == "SHARED_MASK":
-        #     message_type = "Client_init"
-        # elif msg.body['msg'] == "VECTOR":
-        #     message_type = "Client_ag"
-        #
-        # if message_type:
-        #     message_size_bits = 0
-        #     for content in msg.body:
-        #         if content == 'shared_mask':
-        #             message_size_bits = sys.getsizeof(msg.body[content]) * 8
-        #             break
-        #         else:
-        #             message_size_bits += sys.getsizeof(msg.body[content]) * 8
-        #     with open('msg-' + str(msg_name) + '.txt', 'a') as f:
-        #         f.write(message_type + '\n')
-        #         f.write(str(message_size_bits) + '\n')
-
-        # print(msg)
-        # ������ļ�
-        # with open('msg.txt', 'a') as f:
-        #     f.write(str(msg) + '\n')
-        # time.sleep(0.00000000000000000000001)
-        # # ������Ϣ��С���Ա���Ϊ��λ��
-        # message_size_bits = len(str(msg).encode('utf-8')) * 8
-        # ����Ϣ��Сд���ļ�
-        # with open('msg_size.txt', 'a+') as f:
-        #     f.write(str(message_size_bits) + '\n')
-        # # ��������Ϣ������
-        # self.total_message_bits += message_size_bits
-        # print(f"Agent {self.id} sent a message of size {message_size_bits} bits to agent {recipientID}.")
-        # print(f"Total message bits sent by agent {self.id}: {self.total_message_bits} bits.")
-
         self.kernel.sendMessage(self.id, recipientID, msg, delay=delay, tag=tag)
 
-    def print_message_stats(self):  # ���һ����ӡͳ����Ϣ�ķ���
+    def print_message_stats(self):
         print("Message Statistics:")
         for message_type, stats in self.message_stats.items():
             print(f"- {message_type}: Count={stats['count']}, Total bits={stats['bits']}")
