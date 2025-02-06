@@ -5,8 +5,7 @@ file_path = 'D:/Test/results/Revision_1/avg/fmnist_45_450_0.1_0.1_avg_MR_0920212
 
 model_data = torch.load(file_path)
 
-# if isinstance(model_data, dict):
-#     print("Keys:", model_data.keys())
+
 
 print(f"accuracy: {model_data['accuracy']}")
 print(f"poison_accuracy: {model_data['poison_accuracy']}")

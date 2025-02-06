@@ -2,7 +2,7 @@ import torch
 
 from agent.Agent import Agent
 from agent.HPRF.hprf import load_initialization_values, SHPRG
-from agent.Aion.SA_ServiceAgent import SA_ServiceAgent as ServiceAgent
+from agent.Aion.SA_Aggregator import SA_AggregatorAgent as AggregatorAgent
 from message.Message import Message
 import dill
 import time
@@ -106,11 +106,10 @@ class SA_ClientAgent(Agent):
             startTime (pandas.Timestamp): The start time of the simulation.
         """
         if self.id == 0:
-            self.kernel.custom_state['clt_report'] = pd.Timedelta(0)
-            self.kernel.custom_state['clt_crosscheck'] = pd.Timedelta(0)
-            self.kernel.custom_state['clt_reconstruction'] = pd.Timedelta(0)
+            self.kernel.custom_state['seed sharing'] = pd.Timedelta(0)
 
-        self.serviceAgentID = self.kernel.findAgentByType(ServiceAgent)
+
+        self.AggregatorAgentID = self.kernel.findAgentByType(AggregatorAgent)
 
         self.setComputationDelay(0)
 
@@ -122,12 +121,7 @@ class SA_ClientAgent(Agent):
         Called when the simulation stops.
         """
 
-        self.kernel.custom_state['clt_report'] += (
-                self.elapsed_time['REPORT'] / self.no_of_iterations)
-        self.kernel.custom_state['clt_crosscheck'] += (
-                self.elapsed_time['CROSSCHECK'] / self.no_of_iterations)
-        self.kernel.custom_state['clt_reconstruction'] += (
-                self.elapsed_time['RECONSTRUCTION'] / self.no_of_iterations)
+
 
         super().kernelStopping()
 
@@ -162,7 +156,7 @@ class SA_ClientAgent(Agent):
 
         dt_protocol_start = pd.Timestamp('now')
 
-        self.sendMessage(self.serviceAgentID,
+        self.sendMessage(self.AggregatorAgentID,
                          Message({"msg": "BFT_SIGN",
                                   "iteration": self.current_iteration,
                                   "sender": self.id,
@@ -203,7 +197,7 @@ class SA_ClientAgent(Agent):
                 hprf_sum_shares = shprg.list_hprf(sum_shares, self.current_iteration, self.vector_len)
                 clt_comp_delay = pd.Timestamp('now') - dt_protocol_start
 
-                self.sendMessage(self.serviceAgentID,
+                self.sendMessage(self.AggregatorAgentID,
                                  Message({"msg": "hprf_SUM_SHARES",
                                           "iteration": self.current_iteration,
                                           "sender": self.id,
@@ -249,6 +243,9 @@ class SA_ClientAgent(Agent):
             self.mask_seed = random.SystemRandom().randint(1, self.prime)
             self.share_mask_seed()
             self.initial_time = time.time() - start_time
+            self.kernel.custom_state['seed sharing'] = self.initial_time
+
+
 
         start_time = time.time()
         initialization_values_filename = r"agent\\HPRF\\initialization_values"
@@ -263,7 +260,7 @@ class SA_ClientAgent(Agent):
 
         masked_vec = vec + mask_vector
 
-        self.sendMessage(self.serviceAgentID,
+        self.sendMessage(self.AggregatorAgentID,
                          Message({"msg": "VECTOR",
                                   "iteration": self.current_iteration,
                                   "sender": self.id,

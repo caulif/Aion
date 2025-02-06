@@ -1,7 +1,7 @@
 # Our custom modules.
 from Kernel import Kernel
 from agent.Aion.SA_ClientAgent import SA_ClientAgent as ClientAgent
-from agent.Aion.SA_ServiceAgent import SA_ServiceAgent as ServiceAgent
+from agent.Aion.SA_Aggregator import SA_AggregatorAgent as AggregatorAgent
 from model.LatencyModel import LatencyModel
 from util import util
 from util import param
@@ -210,10 +210,10 @@ print(f"Client init took {td_init}")
 
 ### Configure a service agent.
 
-agents.extend([ServiceAgent(
+agents.extend([AggregatorAgent(
     id=b,  # set id to be a number after all clients
     name="PPFL Service Agent",
-    type="ServiceAgent",
+    type="AggregatorAgent",
     random_state=np.random.RandomState(seed=np.random.randint(low=0, high=2 ** 32, dtype='uint64')),
     msg_fwd_delay=0,
     users=[*range(a, b)],
@@ -228,7 +228,7 @@ agents.extend([ServiceAgent(
     debug_mode=debug_mode,
 )])
 
-agent_types.extend(["ServiceAgent"])
+agent_types.extend(["AggregatorAgent"])
 
 ### Configure a latency model for the agents.
 
@@ -259,19 +259,20 @@ results = kernel.runner(agents=agents,
                         skip_log=skip_log,
                         log_dir=log_dir)
 
-# Print parameter summary and elapsed times by category for this experimental trial.
+
 print()
 print(f"######## Microbenchmarks ########")
 print(f"Protocol Iterations: {num_iterations}, Clients: {num_clients}, ")
 
 print()
-print("Service Agent mean time per iteration (except setup)...")
-print(f"    Report step:         {results['srv_report']}")
-print(f"    Crosscheck step:     {results['srv_crosscheck']}")
-print(f"    Reconstruction step: {results['srv_reconstruction']}")
+print("Service Agent mean time per iteration")
+print(f"    Legal clients confirmation:         {results['Legal clients confirmation']:.6f}s")
+print(f"    Online clients confirmation:     {results['Online clients confirmation']:.6f}s")
+print(f"    Aggregate share reconstruction: {results['Aggregate share reconstruction']:.6f}s")
+print(f"    Model aggregation: {results['Model aggregation']:.6f}s")
 print()
-print("Client Agent mean time per iteration (except setup)...")
-print(f"    Report step:         {results['clt_report'] / num_clients}")
-print(f"    Crosscheck step:     {results['clt_crosscheck'] / param.committee_size}")
-print(f"    Reconstruction step: {results['clt_reconstruction'] / param.committee_size}")
+print("Client Agent mean time per iteration")
+print(f"    Seed sharing:         {results['seed sharing']:.6f}s")
+print(f"    Masked model generation:     {results['Masked model generation']:.6f}s")
 print()
+

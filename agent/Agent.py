@@ -127,30 +127,6 @@ class Agent:
     ### It is possible this could change in the future.  Normal agents will
     ### not typically wish to request additional delay.
     def sendMessage(self, recipientID, msg, delay=0, tag="communication",msg_name=None):
-        message_type = None
-        if msg.body['msg'] == "SHARED_MASK":
-            message_type = "Seed sharing"
-        elif msg.body['msg'] == "ONLINE_CLIENTS":
-            message_type = "Legal clients confirmation"
-        elif msg.body['msg'] == "VECTOR":
-            message_type = "Masked model generation"
-        elif msg.body['msg'] in ("SIGN", "request shares sum", "hprf_SUM_SHARES"):
-            message_type = "Aggregate share reconstruction"
-        elif msg.body['msg'] == "INITIAL_MODEL":
-            message_type = "Model aggregation"
-        elif msg.body['msg'] == "BFT_SIGN":
-            message_type = "Online clients confirmation"
-
-        if message_type:
-            msg.body['message_type'] = message_type
-
-            message_size_bits = 0
-            for content in msg.body:
-                message_size_bits += sys.getsizeof(msg.body[content]) * 8
-            with open('msg-'+str(msg_name)+'.txt', 'a') as f:
-                f.write(message_type + '\n')
-                f.write(str(message_size_bits) + '\n')
-
         self.kernel.sendMessage(self.id, recipientID, msg, delay=delay, tag=tag)
 
     def print_message_stats(self):
