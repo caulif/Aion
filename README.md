@@ -29,7 +29,7 @@ Use pip to install required packages.
 pip install -r requirements.txt
 ```
 
-## 
+
 
 
 ## **Secure Aggregation**
@@ -52,17 +52,7 @@ e.g., 128, 256, 512.
 
 Example command:
 ```
-python abides.py -c Aion -n 128 -i 1 -p 1 
-```
-
-
-
-## Test of Defend Against Poisoning Attacks
-
-
-Example command: 
-```
-
+python abides.py -c Aion -n 128 -i 10 -p 1 
 ```
 
 
