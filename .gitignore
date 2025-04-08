@@ -6,4 +6,9 @@ pki_files/*
 log/
 log/*
 *.log
+doc/
+doc/*
+note/
+note/*
+
 
