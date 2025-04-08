@@ -1,2 +1,5 @@
 /vendor
 .idea
+pki_files/
+pki_files/*
+*.pem
