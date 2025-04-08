@@ -15,12 +15,12 @@ committee_size = 8
 fraction = 1 / 3
 fixed_key = b"abcd"
 
-# prime = sympy.randprime(2 ** (32 - 1), 2 ** 32)  # Generate a large prime number
-prime = 527921
+prime = sympy.randprime(2 ** (32 - 1), 2 ** 32)  # Generate a large prime number
+# prime = 527921
 
-wt_flamingo_report = pd.Timedelta('10s')
-wt_flamingo_crosscheck = pd.Timedelta('3s')
-wt_flamingo_reconstruction = pd.Timedelta('3s')
+wt_Aion_report = pd.Timedelta('10s')
+wt_Aion_crosscheck = pd.Timedelta('3s')
+wt_Aion_reconstruction = pd.Timedelta('3s')
 
 wt_google_adkey = pd.Timedelta('10s')
 wt_google_graph = pd.Timedelta('10s')

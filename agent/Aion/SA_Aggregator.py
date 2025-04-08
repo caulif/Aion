@@ -1,14 +1,17 @@
 import time
 import logging
 import re
+import dill
 
 import pandas as pd
 import numpy as np
 import sympy
+import random
 
 from agent.Agent import Agent
 from message.Message import Message
 from util import param, util
+from util.crypto.secretsharing.vss import VSS
 
 class SA_AggregatorAgent(Agent):
     """
@@ -77,6 +80,9 @@ class SA_AggregatorAgent(Agent):
         self.committee_threshold = 0
         self.prime = param.prime
 
+        # Initialize VSS
+        self.vss = VSS()
+
         # Data storage
         self.times = []
         self.client_id_list = None
@@ -91,6 +97,7 @@ class SA_AggregatorAgent(Agent):
         self.committee_sigs = {}
         self.recv_committee_sigs = {}
         self.receive_mask = {}
+        self.mask_commitments = {}  # Store commitments for verification
 
         # Initialize vectors
         self.vec_sum_partial = np.zeros(self.vector_len, dtype=self.vector_dtype)
@@ -138,8 +145,6 @@ class SA_AggregatorAgent(Agent):
             "Model aggregation": [],
         }
 
-
-
     # Simulate lifecycle message
     def kernelStarting(self, startTime):
         """
@@ -155,6 +160,11 @@ class SA_AggregatorAgent(Agent):
         self.kernel.custom_state['Online clients confirmation'] = 0
         self.kernel.custom_state['Aggregate share reconstruction'] = 0
         self.kernel.custom_state['Model aggregation'] = 0
+        
+        # 动态导入 ClientAgent 以避免循环导入
+        from agent.Aion.SA_ClientAgent import SA_ClientAgent as ClientAgent
+        self.ClientAgent = ClientAgent
+        
         super().kernelStarting(startTime)
 
     def kernelStopping(self):
@@ -357,7 +367,7 @@ class SA_AggregatorAgent(Agent):
         self.current_round = 3
         server_comp_delay = pd.Timestamp('now') - dt_protocol_start
         self.agent_print("Crosscheck step running time:", server_comp_delay)
-        self.setWakeup(currentTime + server_comp_delay + param.wt_flamingo_reconstruction)
+        self.setWakeup(currentTime + server_comp_delay + param.wt_Aion_reconstruction)
 
         self.recordTime(dt_protocol_start, "CROSSCHECK")
         self.check_time = time.time() - self.check_time
@@ -392,7 +402,7 @@ class SA_AggregatorAgent(Agent):
         if self.current_iteration > self.no_of_iterations:
             return
 
-        self.setWakeup(currentTime + server_comp_delay + param.wt_flamingo_report)
+        self.setWakeup(currentTime + server_comp_delay + param.wt_Aion_report)
 
     def reconstruction_read_from_pool(self):
         """Reads decryption shares from the receiving pool."""
@@ -572,6 +582,38 @@ class SA_AggregatorAgent(Agent):
             selected_indices = list(sorted_l2_norm.keys())[:benign_index]
         return selected_indices, b
 
+    def vss_verify_share(self, share, commitments, prime=None):
+        """
+        Verify a share against the commitments.
+        
+        Args:
+            share: A share in the format (share_index, share_value).
+            commitments: List of commitments.
+            prime: The prime number to use.
+            
+        Returns:
+            is_valid: True if the share is valid, False otherwise.
+        """
+        if prime is None:
+            prime = self.prime
+            
+        return self.vss.verify_share(share, commitments, prime)
+        
+    def vss_reconstruct(self, shares, prime=None):
+        """
+        Reconstruct the secret from shares.
+        
+        Args:
+            shares: List of shares in the format [(share_index, share_value)].
+            prime: The prime number to use.
+            
+        Returns:
+            secret: The reconstructed secret.
+        """
+        if prime is None:
+            prime = self.prime
+            
+        return self.vss.reconstruct(shares, prime)
 
     # ======================== UTIL ========================
     def recordTime(self, startTime, categoryName):
@@ -590,3 +632,120 @@ class SA_AggregatorAgent(Agent):
         Custom print function that adds a [Server] header before printing.
         """
         print(f"[Server] ", *args, **kwargs)
+
+    def handleMessage(self, currentTime, msg):
+        """
+        Handles incoming messages.
+
+        Args:
+            currentTime (pandas.Timestamp): The current simulation time.
+            msg (Message): The message to handle.
+        """
+        if msg.body["msg"] == "VECTOR":
+            self.handle_vector(currentTime, msg)
+        elif msg.body["msg"] == "SHARED_MASK":
+            self.handle_shared_mask(currentTime, msg)
+        elif msg.body["msg"] == "MASK_COMMITMENTS":
+            self.handle_mask_commitments(currentTime, msg)
+        elif msg.body["msg"] == "SIGN":
+            self.handle_sign(currentTime, msg)
+        elif msg.body["msg"] == "SHARES_SUM":
+            self.handle_shares_sum(currentTime, msg)
+        elif msg.body["msg"] == "FINAL_RESULT":
+            self.handle_final_result(currentTime, msg)
+        else:
+            self.agent_print(f"Unknown message type: {msg.body['msg']}")
+
+    def handle_shared_mask(self, currentTime, msg):
+        """
+        Handles a shared mask message.
+
+        Args:
+            currentTime (pandas.Timestamp): The current simulation time.
+            msg (Message): The message containing the shared mask.
+        """
+        sender_id = msg.body["sender"]
+        shared_mask = msg.body["shared_mask"]
+        commitments = msg.body.get("commitments", None)
+        
+        # Verify the share if commitments are provided
+        if commitments is not None:
+            is_valid = self.vss_verify_share(shared_mask, commitments, self.prime)
+            if not is_valid:
+                self.agent_print(f"Invalid share received from client {sender_id}")
+                return
+        
+        self.recv_shared_masks[sender_id] = shared_mask
+        self.agent_print(f"Received shared mask from client {sender_id}")
+        
+        # Check if we have received all shared masks
+        if len(self.recv_shared_masks) == len(self.selected_indices):
+            self.agent_print("Received all shared masks")
+            self.crosscheck(currentTime)
+            
+    def handle_mask_commitments(self, currentTime, msg):
+        """
+        Handles mask commitments message.
+
+        Args:
+            currentTime (pandas.Timestamp): The current simulation time.
+            msg (Message): The message containing the mask commitments.
+        """
+        sender_id = msg.body["sender"]
+        commitments = msg.body["commitments"]
+        
+        # Store the commitments for verification
+        self.mask_commitments[sender_id] = commitments
+        self.agent_print(f"Received mask commitments from client {sender_id}")
+        
+        # Check if we have received all commitments
+        if len(self.mask_commitments) == len(self.selected_indices):
+            self.agent_print("Received all mask commitments")
+            
+    def verify_all_shares(self):
+        """
+        Verifies all shares against their commitments.
+        
+        Returns:
+            is_valid: True if all shares are valid, False otherwise.
+        """
+        for client_id, shares in self.recv_shared_masks.items():
+            if client_id in self.mask_commitments:
+                commitments = self.mask_commitments[client_id]
+                is_valid = self.vss_verify_share(shares, commitments, self.prime)
+                if not is_valid:
+                    self.agent_print(f"Invalid share from client {client_id}")
+                    return False
+        return True
+
+    def crosscheck(self, currentTime):
+        """
+        Performs crosscheck and requests shares from committee members.
+
+        Args:
+            currentTime (pandas.Timestamp): Current simulation time.
+        """
+        dt_protocol_start = pd.Timestamp('now')
+        self.check_time = time.time()
+        
+        # Verify all shares
+        if not self.verify_all_shares():
+            self.agent_print("Some shares are invalid, aborting crosscheck")
+            return
+
+        for id in self.user_committee:
+            self.sendMessage(id,
+                             Message({"msg": "request shares sum",
+                                      "iteration": self.current_iteration,
+                                      "request id list": self.selected_indices,
+                                      }),
+                             tag="comm_sign_server",
+                             msg_name=self.msg_name)
+
+        self.current_round = 3
+        server_comp_delay = pd.Timestamp('now') - dt_protocol_start
+        self.agent_print("Crosscheck step running time:", server_comp_delay)
+        self.setWakeup(currentTime + server_comp_delay + param.wt_Aion_reconstruction)
+
+        self.recordTime(dt_protocol_start, "CROSSCHECK")
+        self.check_time = time.time() - self.check_time

@@ -2,7 +2,6 @@ import torch
 
 from agent.Agent import Agent
 from agent.HPRF.hprf import load_initialization_values, SHPRG
-from agent.Aion.SA_Aggregator import SA_AggregatorAgent as AggregatorAgent
 from message.Message import Message
 import dill
 import time
@@ -14,6 +13,7 @@ from Cryptodome.Signature import DSS
 
 from util import param
 from util import util
+from util.crypto.secretsharing.vss import VSS
 
 from agent.Aion.tool import *
 
@@ -81,6 +81,9 @@ class SA_ClientAgent(Agent):
         self.committee_member_idx = None
 
         self.prime = param.prime
+        
+        # Initialize VSS
+        self.vss = VSS()
 
         self.elapsed_time = {'REPORT': pd.Timedelta(0),
                              'CROSSCHECK': pd.Timedelta(0),
@@ -108,7 +111,8 @@ class SA_ClientAgent(Agent):
         if self.id == 0:
             self.kernel.custom_state['seed sharing'] = pd.Timedelta(0)
 
-
+        # 动态导入 AggregatorAgent 以避免循环导入
+        from agent.Aion.SA_Aggregator import SA_AggregatorAgent as AggregatorAgent
         self.AggregatorAgentID = self.kernel.findAgentByType(AggregatorAgent)
 
         self.setComputationDelay(0)
@@ -274,21 +278,32 @@ class SA_ClientAgent(Agent):
 
     def share_mask_seed(self):
         """
-        Generates and shares the mask seed.
+        Generates and shares the mask seed using verifiable secret sharing.
         """
-        shares = SA_ClientAgent.vss_share(self.mask_seed, len(self.user_committee),
-                                              len(self.user_committee) - 4, self.prime)
+        # Use VSS to share the mask seed
+        shares, commitments = self.vss_share(self.mask_seed, len(self.user_committee),
+                                           len(self.user_committee) - 4, self.prime)
         user_committee_list = list(self.user_committee)
 
+        # Send shares to committee members
         for j in range(len(user_committee_list)):
             self.sendMessage(user_committee_list[j],
                              Message({"msg": "SHARED_MASK",
                                       "sender": self.id,
                                       "shared_mask": shares[j],
+                                      "commitments": commitments,
                                       }),
                              tag="comm_secret_sharing",
                              msg_name=self.msg_name)
-        pass
+        
+        # Send commitments to the aggregator for verification
+        self.sendMessage(self.AggregatorAgentID,
+                         Message({"msg": "MASK_COMMITMENTS",
+                                  "sender": self.id,
+                                  "commitments": commitments,
+                                  }),
+                             tag="comm_secret_sharing",
+                             msg_name=self.msg_name)
 
     def generate_shares(secret, num_shares, threshold, prime, seed=None):
         """
@@ -311,9 +326,9 @@ class SA_ClientAgent(Agent):
         shares = [(x, polynomial(x) % prime) for x in range(1, num_shares + 1)]
         return shares
 
-    def vss_share(secret, num_shares: int, threshold: int = None, prime=None, seed=None):
+    def vss_share(self, secret, num_shares: int, threshold: int = None, prime=None, seed=None):
         """
-        Local secret sharing function.
+        Verifiable secret sharing function.
 
         Args:
             secret: The secret to be shared.
@@ -324,12 +339,49 @@ class SA_ClientAgent(Agent):
 
         Returns:
             shares: A list of secret shares in the format [(share_index, share_value)].
+            commitments: A list of commitments for verification.
         """
         if threshold is None:
             threshold = num_shares//2
-        shares = SA_ClientAgent.generate_shares(secret, num_shares, threshold, prime, seed)
-        return shares
-
+        if prime is None:
+            prime = self.prime
+            
+        # Use VSS to share the secret
+        shares, commitments = self.vss.share(secret, num_shares, threshold, prime)
+        return shares, commitments
+        
+    def vss_verify_share(self, share, commitments, prime=None):
+        """
+        Verify a share against the commitments.
+        
+        Args:
+            share: A share in the format (share_index, share_value).
+            commitments: List of commitments.
+            prime: The prime number to use.
+            
+        Returns:
+            is_valid: True if the share is valid, False otherwise.
+        """
+        if prime is None:
+            prime = self.prime
+            
+        return self.vss.verify_share(share, commitments, prime)
+        
+    def vss_reconstruct(self, shares, prime=None):
+        """
+        Reconstruct the secret from shares.
+        
+        Args:
+            shares: List of shares in the format [(share_index, share_value)].
+            prime: The prime number to use.
+            
+        Returns:
+            secret: The reconstructed secret.
+        """
+        if prime is None:
+            prime = self.prime
+            
+        return self.vss.reconstruct(shares, prime)
 
     def sum_shares(shares_list, prime):
         """Sums multiple secret shares."""
