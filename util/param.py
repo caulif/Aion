@@ -8,8 +8,7 @@ import math
 # System parameters
 vector_len = 10000
 
-# TODO Automatically read and update model parameters
-# vector_len = 44426
+
 vector_type = 'uint32'
 
 committee_size = 8
@@ -18,9 +17,7 @@ fixed_key = b"abcd"
 
 # prime = sympy.randprime(2 ** (32 - 1), 2 ** 32)  # Generate a large prime number
 prime = 527921
-# Waiting time
-# Set according to a target dropout rate (e.g., 1%)
-# and message latency (see model/LatencyModel.py)
+
 wt_flamingo_report = pd.Timedelta('10s')
 wt_flamingo_crosscheck = pd.Timedelta('3s')
 wt_flamingo_reconstruction = pd.Timedelta('3s')
@@ -32,9 +29,7 @@ wt_google_collection = pd.Timedelta('10s')
 wt_google_crosscheck = pd.Timedelta('3s')
 wt_google_recontruction = pd.Timedelta('2s')
 
-# WARNING:
-# This should be a random seed from a beacon service;
-# we use a fixed one for simplicity
+
 root_seed = get_random_bytes(32)
 nonce = b'\x00\x00\x00\x00\x00\x00\x00\x00'
 
@@ -96,6 +91,7 @@ def findNeighbors(root_seed, current_iteration, num_clients, id, neighborhood_si
     num_choose = math.ceil(math.log2(num_clients))  # number of neighbors I choose
     num_choose = num_choose * neighborhood_size
 
+    # Calculate bytes needed based on actual number of clients
     bytes_per_client = math.ceil(math.log2(num_clients) / 8)
     segment_len = num_choose * bytes_per_client
     num_rand_bytes = segment_len * num_clients
@@ -107,10 +103,11 @@ def findNeighbors(root_seed, current_iteration, num_clients, id, neighborhood_si
 
     # define the number of bits within bytes_per_client that can be convert to int (neighbor's ID)
     bits_per_client = math.ceil(math.log2(num_clients))
-    # default number of clients is power of two
+    
+    # Generate neighbors using modulo operation to ensure valid client IDs
     for i in range(num_choose):
         tmp = my_segment[i * bytes_per_client: (i + 1) * bytes_per_client]
-        tmp_neighbor = int.from_bytes(tmp, 'big') & ((1 << bits_per_client) - 1)
+        tmp_neighbor = int.from_bytes(tmp, 'big') % num_clients
 
         if tmp_neighbor == id:  # random neighbor choice happened to be itself, skip
             continue
