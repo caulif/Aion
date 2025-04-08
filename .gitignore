@@ -3,3 +3,7 @@
 pki_files/
 pki_files/*
 *.pem
+log/
+log/*
+*.log
+
